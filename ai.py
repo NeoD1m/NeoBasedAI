@@ -4,15 +4,15 @@ import time
 
 from twitch_chat_irc import twitch_chat_irc
 
-streamer = "plaintsoup"
+streamer = "pliantsoup"
 
 def send_message(message):
-    connection = twitch_chat_irc.TwitchChatIRC('NeoBased', 'oauth:5msd8npngbtp1hewmyh2sw37ejawm1')
-    connection.send("plaintsoup", message)
+    connection = twitch_chat_irc.TwitchChatIRC('NeoBased', 'oauth:pmelrv8a856yp5o7cbtzcn7w3xo977')
+    connection.send(streamer, message)
     connection.close_connection()
 
 
-openai.api_key = "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"
+openai.api_key = "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"
 r = sr.Recognizer()
 
 while (True):
@@ -36,7 +36,6 @@ while (True):
                 frequency_penalty=0,
                 presence_penalty=0
             )
-            print(response)
             message = response["choices"][0]["text"].replace("\"", "").replace("\n","")
         else:
             print("Small input")
@@ -44,5 +43,5 @@ while (True):
 
     if message != "":
         print(message)
-        send_message("@" + "plaintsoup" + " " + message)
+        send_message("@" + streamer + " " + message)
         time.sleep(45)
