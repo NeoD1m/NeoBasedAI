@@ -4,7 +4,6 @@ import time
 import config
 import api_keys
 import translator
-from alsa import *
 
 from twitch_chat_irc import twitch_chat_irc
 
@@ -21,7 +20,7 @@ r = sr.Recognizer()
 
 while (True):
     message = ""
-    with noalsaerr() as n, sr.Microphone() as source:
+    with sr.Microphone() as source:
         print("Listening")
         audio_text = r.listen(source, phrase_time_limit=10)
         print("Recognising")
@@ -31,26 +30,27 @@ while (True):
         if len(transcript.split(" ")) >= 4:
             print(transcript)
 
-            if config.use_translator :
-                to_en = translator.to_en(transcript)
-                transcript = translator.to_ru(to_en)
-
+            #if config.use_translator:
+            #    to_en = translator.to_en(transcript)
+            #    print (to_en)
             response = openai.Completion.create(
                 model="text-davinci-003",
-                prompt="напиши смешной комментарий на это сообщение: \"" + transcript + "\"",
+                prompt="напиши неформальный смешной комментарий на данное сообщение: \"" + transcript + "\". в случайное место вставь слово бля",
                 temperature=0.7,
                 max_tokens=256,
                 top_p=1,
-                best_of=3,
-                frequency_penalty=0,
+                best_of=1,
+                frequency_penalty=2,
                 presence_penalty=0
             )
             message = response["choices"][0]["text"].replace("\"", "").replace("\n","")
+            #print(message)
+            #message = translator.to_ru(message)
         else:
             print("Small input")
     except Exception as e: print(e)
 
     if message != "":
-        print(message)
+        print('\033[93m' + message + '\033[0m')
         send_message("@" + config.streamer + " " + message)
         time.sleep(45)
