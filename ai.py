@@ -4,6 +4,7 @@ import time
 import config
 import api_keys
 import translator
+from alsa import *
 
 from twitch_chat_irc import twitch_chat_irc
 
@@ -20,7 +21,7 @@ r = sr.Recognizer()
 
 while (True):
     message = ""
-    with sr.Microphone() as source:
+    with noalsaerr() as n, sr.Microphone() as source:
         print("Listening")
         audio_text = r.listen(source, phrase_time_limit=10)
         print("Recognising")
@@ -40,8 +41,10 @@ while (True):
                 presence_penalty=0
             )
             message = response["choices"][0]["text"].replace("\"", "").replace("\n","")
-            to_en = translator.to_en(message)
-            message = translator.to_ru(to_en)
+            
+            if config.use_translator :
+                to_en = translator.to_en(message)
+                message = translator.to_ru(to_en)
         else:
             print("Small input")
     except Exception as e: print(e)
