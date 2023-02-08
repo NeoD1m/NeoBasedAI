@@ -1,18 +1,21 @@
 import speech_recognition as sr
 import openai
 import time
+import config
+import api_keys
+import translator
 
 from twitch_chat_irc import twitch_chat_irc
 
-streamer = "pliantsoup"
+
 
 def send_message(message):
-    connection = twitch_chat_irc.TwitchChatIRC('NeoBased', 'oauth:pmelrv8a856yp5o7cbtzcn7w3xo977')
-    connection.send(streamer, message)
+    connection = twitch_chat_irc.TwitchChatIRC('NeoBased', api_keys.twitch)
+    connection.send(config.streamer, message)
     connection.close_connection()
 
 
-openai.api_key = "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"
+openai.api_key = api_keys.openai
 r = sr.Recognizer()
 
 while (True):
@@ -37,11 +40,13 @@ while (True):
                 presence_penalty=0
             )
             message = response["choices"][0]["text"].replace("\"", "").replace("\n","")
+            to_en = translator.to_en(message)
+            message = translator.to_ru(to_en)
         else:
             print("Small input")
     except Exception as e: print(e)
 
     if message != "":
         print(message)
-        send_message("@" + streamer + " " + message)
+        send_message("@" + config.streamer + " " + message)
         time.sleep(45)
