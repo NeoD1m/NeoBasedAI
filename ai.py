@@ -30,6 +30,11 @@ while (True):
         transcript = r.recognize_google(audio_text, language="ru-RU", show_all=True)['alternative'][0]['transcript']
         if len(transcript.split(" ")) >= 4:
             print(transcript)
+
+            if config.use_translator :
+                to_en = translator.to_en(transcript)
+                transcript = translator.to_ru(to_en)
+
             response = openai.Completion.create(
                 model="text-davinci-003",
                 prompt="напиши смешной комментарий на это сообщение: \"" + transcript + "\"",
@@ -41,10 +46,6 @@ while (True):
                 presence_penalty=0
             )
             message = response["choices"][0]["text"].replace("\"", "").replace("\n","")
-            
-            if config.use_translator :
-                to_en = translator.to_en(message)
-                message = translator.to_ru(to_en)
         else:
             print("Small input")
     except Exception as e: print(e)

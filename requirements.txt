@@ -1,5 +1,4 @@
 SpeechRecognition
-libretranslate
 openai
 pyaudio
 twitch_chat_irc
