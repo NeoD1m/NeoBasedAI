@@ -4,10 +4,11 @@ import time
 
 from twitch_chat_irc import twitch_chat_irc
 
-streamer = 'pliantsoup'
+streamer = "plaintsoup"
+
 def send_message(message):
     connection = twitch_chat_irc.TwitchChatIRC('NeoBased', 'oauth:5msd8npngbtp1hewmyh2sw37ejawm1')
-    connection.send(streamer, message)
+    connection.send("plaintsoup", message)
     connection.close_connection()
 
 
@@ -35,13 +36,13 @@ while (True):
                 frequency_penalty=0,
                 presence_penalty=0
             )
+            print(response)
             message = response["choices"][0]["text"].replace("\"", "").replace("\n","")
         else:
-            print("...")
-    except:
-        print("...")
+            print("Small input")
+    except Exception as e: print(e)
 
     if message != "":
         print(message)
-        send_message("@" + streamer + " " + message)
+        send_message("@" + "plaintsoup" + " " + message)
         time.sleep(45)
