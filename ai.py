@@ -4,9 +4,9 @@ import time
 import config
 import api_keys
 import translator
+import random
 
 from twitch_chat_irc import twitch_chat_irc
-
 
 
 def send_message(message):
@@ -15,10 +15,20 @@ def send_message(message):
     connection.close_connection()
 
 
+def sendWithRandomTag(message):
+    randomNumber = random.randint(0, 5)
+    if ("ты" in message) or ("тебя" in message) or ("Ты" in message) or ("Тебя" in message):
+        return ("@" + config.streamer + " " + message)
+    if randomNumber == 1:
+        return ("@" + config.streamer + " " + message)
+    else:
+        return message
+
+
 openai.api_key = api_keys.openai
 r = sr.Recognizer()
 
-while (True):
+while True:
     message = ""
     with sr.Microphone() as source:
         print("Listening")
@@ -26,31 +36,46 @@ while (True):
         print("Recognising")
 
     try:
-        transcript = r.recognize_google(audio_text, language="ru-RU", show_all=True)['alternative'][0]['transcript']
-        if len(transcript.split(" ")) >= 4:
-            print(transcript)
-
-            #if config.use_translator:
-            #    to_en = translator.to_en(transcript)
-            #    print (to_en)
+        recognisingResult = r.recognize_google(audio_text, language="ru-RU", show_all=True)
+        transcript = recognisingResult['alternative'][0]['transcript']
+        confidence = recognisingResult['alternative'][0]['confidence']
+        print("\033[96mconfidence: " + str(confidence) + '\033[0m')
+        print("\033[96m" + transcript + '\033[0m')
+        if (len(transcript.split(" ")) >= 4):
             response = openai.Completion.create(
                 model="text-davinci-003",
-                prompt="напиши неформальный смешной комментарий на данное сообщение: \"" + transcript + "\". в случайное место вставь слово бля",
+                prompt="напиши смешной короткий комментарий на данное сообщение: \"" + transcript + "\", обращайся на ты",
                 temperature=0.7,
                 max_tokens=256,
                 top_p=1,
                 best_of=1,
-                frequency_penalty=2,
+                frequency_penalty=0,
                 presence_penalty=0
             )
-            message = response["choices"][0]["text"].replace("\"", "").replace("\n","")
-            #print(message)
-            #message = translator.to_ru(message)
+            message = response["choices"][0]["text"].replace("\"", "").replace("\n", "")
+            message = message.replace("!", "")
+            print('\033[93m' + message + '\033[0m')
+            response = openai.Completion.create(
+                model="text-davinci-003",
+                prompt="вставь слово бля в случайное место в этом сообщении: \"" + message + "\"",
+                temperature=0.7,
+                max_tokens=256,
+                top_p=1,
+                best_of=1,
+                frequency_penalty=0,
+                presence_penalty=0
+            )
+            message = response["choices"][0]["text"].replace("\"", "").replace("\n", "")
+            message = message.replace("!", "")
         else:
-            print("Small input")
-    except Exception as e: print(e)
+            print("Small input or not recognised")
+    except Exception as e:
+        print(e)
 
     if message != "":
-        print('\033[93m' + message + '\033[0m')
-        send_message("@" + config.streamer + " " + message)
-        time.sleep(45)
+        print('\033[92m' + message + '\033[0m')
+        message = message.replace("!", "")
+        send_message(sendWithRandomTag(message))
+        randomAdditionalSeconds = random.randint(5, 35)
+        print("Sleeping for: " + str(randomAdditionalSeconds + 30))
+        time.sleep(30 + randomAdditionalSeconds)
