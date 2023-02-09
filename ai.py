@@ -9,39 +9,54 @@ import random
 from twitch_chat_irc import twitch_chat_irc
 
 # emojis = ["pootHehe","BibleThump","pootDogWhat","pootBodiesHitTheFloor","pootStare","LUL","NotLikeThis","pootLove","pootDog","pootYepcoke","pootChatBeLIke"]
-emojis = ["LUL", "NotLikeThis","BibleThump"]
+emojis = ["LUL", "NotLikeThis", "BibleThump"]
 
 FAST_SLEEP = True
-def send_message(message):
+
+
+def send_message(_message):
     connection = twitch_chat_irc.TwitchChatIRC('NeoBased', api_keys.twitch)
-    connection.send(config.streamer, message)
+    connection.send(config.streamer, _message)
     connection.close_connection()
 
 
-def addTag(message):
-    randomNumber = random.randint(0, 5)
-    if ("ты" in message) or ("тебя" in message) or ("Ты" in message) or ("Тебя" in message):
-        return ("@" + config.streamer + " " + message)
+uList = ["ты", "тебя", "тебе", "твои", "твой", "тобой"]
+
+
+def add_tag(_message):
+    randomNumber = random.randint(0, 7)
+    if uList in _message:
+        return "@" + config.streamer + " " + _message
     if randomNumber == 1:
-        return ("@" + config.streamer + " " + message)
+        return "@" + config.streamer + " " + _message
     else:
-        return message
+        return _message
 
 
-def addEmojis(message):
+def add_emojis(_message):
     showEmoji = random.randint(0, 1)
     if showEmoji == 1:
-        emojiNumber = random.randint(0, len(emojis)-1)
+        emojiNumber = random.randint(0, len(emojis) - 1)
         amount = random.randint(1, 3)
-        return message + " " + ((emojis[emojiNumber] + " ") * amount)
+        return _message + " " + ((emojis[emojiNumber] + " ") * amount)
     else:
-        return message
+        return _message
 
 
-def prettify(message):
-    message = addTag(message)
-    message = addEmojis(message)
-    return message
+def remove_basic_emojis(_message):
+    _message = _message.replace(":)", "").replace(";)", "").replace(":D", "")
+    return _message
+
+
+def remove_punctuation(_message):
+    return _message.replace("!", "").replace(".", "")
+
+
+def prettify(_message):
+    _message = add_tag(_message)
+    _message = add_emojis(_message)
+    _message = remove_basic_emojis(_message)
+    return _message
 
 
 openai.api_key = api_keys.openai
@@ -60,14 +75,14 @@ while True:
         confidence = recognisingResult['alternative'][0]['confidence']
         print("\033[96mconfidence: " + str(confidence) + '\033[0m')
         print("\033[96m" + transcript + '\033[0m')
-        if (len(transcript.split(" ")) >= 4):
+        if len(transcript.split(" ")) >= 4:
             response = openai.Completion.create(
                 model="text-davinci-003",
                 prompt="напиши смешной короткий комментарий на данное сообщение: \"" + transcript + "\", обращайся на ты",
                 temperature=0.7,
                 max_tokens=256,
                 top_p=1,
-                best_of=1,
+                best_of=3,
                 frequency_penalty=0,
                 presence_penalty=0
             )
@@ -93,8 +108,6 @@ while True:
 
     if message != "":
         print('\033[92m' + message + '\033[0m')
-
-        message = message.replace("!", "").replace(".","")
 
         send_message(prettify(message))
         randomAdditionalSeconds = random.randint(5, 35)
