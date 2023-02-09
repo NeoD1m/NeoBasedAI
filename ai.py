@@ -8,14 +8,17 @@ import random
 
 from twitch_chat_irc import twitch_chat_irc
 
+# emojis = ["pootHehe","BibleThump","pootDogWhat","pootBodiesHitTheFloor","pootStare","LUL","NotLikeThis","pootLove","pootDog","pootYepcoke","pootChatBeLIke"]
+emojis = ["LUL", "NotLikeThis","BibleThump"]
 
+FAST_SLEEP = True
 def send_message(message):
     connection = twitch_chat_irc.TwitchChatIRC('NeoBased', api_keys.twitch)
     connection.send(config.streamer, message)
     connection.close_connection()
 
 
-def sendWithRandomTag(message):
+def addTag(message):
     randomNumber = random.randint(0, 5)
     if ("ты" in message) or ("тебя" in message) or ("Ты" in message) or ("Тебя" in message):
         return ("@" + config.streamer + " " + message)
@@ -23,6 +26,22 @@ def sendWithRandomTag(message):
         return ("@" + config.streamer + " " + message)
     else:
         return message
+
+
+def addEmojis(message):
+    showEmoji = random.randint(0, 1)
+    if showEmoji == 1:
+        emojiNumber = random.randint(0, len(emojis)-1)
+        amount = random.randint(1, 3)
+        return message + " " + ((emojis[emojiNumber] + " ") * amount)
+    else:
+        return message
+
+
+def prettify(message):
+    message = addTag(message)
+    message = addEmojis(message)
+    return message
 
 
 openai.api_key = api_keys.openai
@@ -74,8 +93,11 @@ while True:
 
     if message != "":
         print('\033[92m' + message + '\033[0m')
-        message = message.replace("!", "")
-        send_message(sendWithRandomTag(message))
+
+        message = message.replace("!", "").replace(".","")
+
+        send_message(prettify(message))
         randomAdditionalSeconds = random.randint(5, 35)
         print("Sleeping for: " + str(randomAdditionalSeconds + 30))
-        time.sleep(30 + randomAdditionalSeconds)
+        if not FAST_SLEEP:
+            time.sleep(30 + randomAdditionalSeconds)
