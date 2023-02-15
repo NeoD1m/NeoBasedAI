@@ -1,2 +1,2 @@
-streamer = "mightypoot"
+streamer = "pliantsoup"
 use_translator = True

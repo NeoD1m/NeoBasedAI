@@ -5,9 +5,9 @@ import config
 import api_keys
 import translator
 import random
-import asyncio
-import concurrent.futures
+import json
 import threading
+import re
 
 from twitch_chat_irc import twitch_chat_irc
 
@@ -36,6 +36,13 @@ class bcolors:
 
 
 def send_message(_message):
+    emoji_pattern = re.compile("["
+                               u"\U0001F600-\U0001F64F"  # emoticons
+                               u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                               u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                               u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+                               "]+", flags=re.UNICODE)
+    _message = emoji_pattern.sub(r'', _message)
     connection = twitch_chat_irc.TwitchChatIRC('NeoBased', api_keys.twitch)
     connection.send(config.streamer, _message)
     connection.close_connection()
@@ -87,16 +94,16 @@ def audio_ai():
     while True:
         message = ""
         with sr.Microphone() as source:
-            print("Listening")
+            print("[audio_ai]: " + "Listening")
             audio_text = r.listen(source, phrase_time_limit=10)
-            print("Recognising")
+            print("[audio_ai]: " + "Recognising")
 
         try:
             recognisingResult = r.recognize_google(audio_text, language="ru-RU", show_all=True)
             transcript = recognisingResult['alternative'][0]['transcript']
             confidence = recognisingResult['alternative'][0]['confidence']
-            print(str(confidence))
-            print(bcolors.OKCYAN + transcript + bcolors.ENDC)
+            print("[audio_ai]: " + str(confidence))
+            print("[audio_ai]: " + bcolors.OKCYAN + transcript + bcolors.ENDC)
             if len(transcript.split(" ")) >= 4:
                 response = openai.Completion.create(
                     model="text-davinci-003",
@@ -110,7 +117,7 @@ def audio_ai():
                 )
                 message = response["choices"][0]["text"].replace("\"", "").replace("\n", "")
                 message = message.replace("!", "")
-                print(bcolors.WARNING + message + bcolors.ENDC)
+                print("[audio_ai][first_response]: " + bcolors.WARNING + message + bcolors.ENDC)
                 response = openai.Completion.create(
                     model="text-davinci-003",
                     prompt="вставь слово бля в случайное место в этом сообщении: \"" + message + "\"",
@@ -124,24 +131,63 @@ def audio_ai():
                 message = response["choices"][0]["text"].replace("\"", "").replace("\n", "")
                 message = message.replace("!", "")
             else:
-                print("Small input")
+                print("[audio_ai]: " + "Small input")
         except Exception as e:
             print(e)
 
         if message != "":
-            print(bcolors.OKGREEN + message + bcolors.ENDC)
+            print("[audio_ai][second_response]: " + bcolors.OKGREEN + message + bcolors.ENDC)
 
             send_message(prettify(message))
-            randomAdditionalSeconds = random.randint(0, 30)
-            print("Sleeping for: " + str(randomAdditionalSeconds))
+            sleep_time = random.randint(5, 30)
+            print("[audio_ai]: " + "Sleeping for: " + str(sleep_time))
             if not FAST_SLEEP:
-                time.sleep(2)
+                time.sleep(sleep_time)
+
+
+def handle_message(message):
+    decoded_tag = message['display-name']
+    decoded_message = message['message']
+    if "@neobased" in str(decoded_message).lower():
+        print("[text_ai]: " + bcolors.OKGREEN + str(decoded_message) + bcolors.ENDC)
+        response = openai.Completion.create( #TODO рефактор генерации
+            model="text-davinci-003",
+            prompt="give a new short and funny answer to this message: \"" + decoded_message + "\"",
+            temperature=0.75,
+            max_tokens=256,
+            top_p=1,
+            best_of=1,
+            frequency_penalty=0,
+            presence_penalty=0
+        )
+        ai_message = response["choices"][0]["text"].replace("\"", "").replace("\n", "")
+        ai_message = ai_message.replace("!", "")
+        print("[text_ai][first_response]: " + bcolors.WARNING + ai_message + bcolors.ENDC)
+        response = openai.Completion.create(
+            model="text-davinci-003",
+            prompt="вставь слово бля в случайное место в этом сообщении: \"" + ai_message + "\"",
+            temperature=0.7,
+            max_tokens=256,
+            top_p=1,
+            best_of=1,
+            frequency_penalty=0,
+            presence_penalty=0
+        )
+        ai_message = response["choices"][0]["text"].replace("\"", "").replace("\n", "").replace("!", "")
+        pattern = re.compile(re.escape("@neobased"), re.IGNORECASE)
+        ai_message = pattern.sub("", ai_message)
+        ai_message = "@" + decoded_tag + " " + ai_message
+        ai_message = add_emojis(ai_message)
+        print("[text_ai][second_response]: " + bcolors.OKGREEN + ai_message + bcolors.ENDC)
+        send_message(ai_message)
+    else:
+        print("[text_ai]: " + bcolors.WARNING + str(decoded_message) + bcolors.ENDC)
 
 
 def text_ai():
-    while True:
-        print(bcolors.FAIL + "todo text" + bcolors.ENDC)
-        time.sleep(2)
+    connection = twitch_chat_irc.TwitchChatIRC('NeoBased', api_keys.twitch)
+    connection.listen(config.streamer, on_message=handle_message)
+    connection.close_connection()
 
 
 if __name__ == "__main__":
