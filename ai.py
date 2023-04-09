@@ -8,13 +8,10 @@ import random
 import json
 import threading
 import re
+from playsound import playsound
+import requests
 
 from twitch_chat_irc import twitch_chat_irc
-
-# emojis = ["pootHehe","BibleThump","pootDogWhat","pootBodiesHitTheFloor","pootStare","LUL","NotLikeThis","pootLove","pootDog","pootYepcoke","pootChatBeLIke"]
-emojis = ["LUL", "NotLikeThis", "BibleThump", "pootDog", "pootLove", "pootComf", "pootStare", "pootDogWhat"]
-# emojis = ["LUL", "NotLikeThis", "BibleThump"]
-FAST_SLEEP = False
 
 
 # https://pypi.org/project/twitch-chat-irc/
@@ -22,6 +19,8 @@ FAST_SLEEP = False
 
 # TODO
 # https://github.com/lacson/webcaptioner-stream распознование звука
+from generate_text import generate_text
+
 
 class bcolors:
     HEADER = '\033[95m'
@@ -43,9 +42,12 @@ def send_message(_message):
                                u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
                                "]+", flags=re.UNICODE)
     _message = emoji_pattern.sub(r'', _message)
-    connection = twitch_chat_irc.TwitchChatIRC('NeoBased', api_keys.twitch)
-    connection.send(config.streamer, _message)
-    connection.close_connection()
+    if "[ERROR]" not in _message:
+        connection = twitch_chat_irc.TwitchChatIRC('NeoBasedAI', api_keys.twitch)
+        connection.send(config.streamer, _message)
+        connection.close_connection()
+
+
 
 
 def add_tag(_message):
@@ -65,12 +67,33 @@ def add_tag(_message):
 def add_emojis(_message):
     showEmoji = random.randint(0, 1)
     if showEmoji == 1:
-        emojiNumber = random.randint(0, len(emojis) - 1)
+        emojiNumber = random.randint(0, len(config.emojis) - 1)
         amount = random.randint(1, 3)
-        return _message + " " + ((emojis[emojiNumber] + " ") * amount)
+        return _message + " " + ((config.emojis[emojiNumber] + " ") * amount)
     else:
         return _message
 
+
+def say(_message):
+    url = 'https://tts.voicetech.yandex.net/tts?&format=mp3&lang=ru_RU&speed=1.3&emotion=neutral&speaker=nick&robot=1&text=' + _message
+
+    response = requests.get(url)
+
+    # Check if the request was successful
+    try:
+        if response.status_code == 200:
+            # Write the file to disk
+            with open('file.mp3', 'wb') as f:
+                f.write(response.content)
+            print('File saved successfully.')
+
+            # Play the file
+            playsound('./file.mp3')
+            print('File played successfully.')
+        else:
+            print('Error:', response.status_code)
+    finally:
+        print("bruh")
 
 def remove_basic_emojis(_message):
     _message = _message.replace(":)", "").replace(";)", "").replace(":D", "")
@@ -104,82 +127,46 @@ def audio_ai():
             confidence = recognisingResult['alternative'][0]['confidence']
             print("[audio_ai]: " + str(confidence))
             print("[audio_ai]: " + bcolors.OKCYAN + transcript + bcolors.ENDC)
-            if len(transcript.split(" ")) >= 4:
-                response = openai.Completion.create(
-                    model="text-davinci-003",
-                    prompt="give a new short and funny answer to this message: \"" + transcript + "\"",
-                    temperature=0.75,
-                    max_tokens=256,
-                    top_p=1,
-                    best_of=1,
-                    frequency_penalty=0,
-                    presence_penalty=0
-                )
-                message = response["choices"][0]["text"].replace("\"", "").replace("\n", "")
-                message = message.replace("!", "")
-                print("[audio_ai][first_response]: " + bcolors.WARNING + message + bcolors.ENDC)
-                response = openai.Completion.create(
-                    model="text-davinci-003",
-                    prompt="вставь слово бля в случайное место в этом сообщении: \"" + message + "\"",
-                    temperature=0.7,
-                    max_tokens=256,
-                    top_p=1,
-                    best_of=1,
-                    frequency_penalty=0,
-                    presence_penalty=0
-                )
-                message = response["choices"][0]["text"].replace("\"", "").replace("\n", "")
-                message = message.replace("!", "")
-            else:
-                print("[audio_ai]: " + "Small input")
+
+            message = generate_text(transcript)
+            #else:
+            #    print("[audio_ai]: " + "Small input")
         except Exception as e:
             print(e)
 
         if message != "":
             print("[audio_ai][second_response]: " + bcolors.OKGREEN + message + bcolors.ENDC)
 
-            send_message(prettify(message))
-            sleep_time = random.randint(5, 30)
+            if config.stream_mode:
+                say(message)
+            else:
+                send_message(prettify(message))
+            sleep_time = random.randint(20, 45)
             print("[audio_ai]: " + "Sleeping for: " + str(sleep_time))
-            if not FAST_SLEEP:
+            if not config.FAST_SLEEP:
                 time.sleep(sleep_time)
 
 
 def handle_message(message):
     decoded_tag = message['display-name']
     decoded_message = message['message']
-    if "@neobased" in str(decoded_message).lower():
+    if "@neobased" in str(decoded_message).lower() or "@neobasedai" in str(decoded_message).lower():
         print("[text_ai]: " + bcolors.OKGREEN + str(decoded_message) + bcolors.ENDC)
-        response = openai.Completion.create( #TODO рефактор генерации
-            model="text-davinci-003",
-            prompt="give a new short and funny answer to this message: \"" + decoded_message + "\"",
-            temperature=0.75,
-            max_tokens=256,
-            top_p=1,
-            best_of=1,
-            frequency_penalty=0,
-            presence_penalty=0
-        )
-        ai_message = response["choices"][0]["text"].replace("\"", "").replace("\n", "")
-        ai_message = ai_message.replace("!", "")
-        print("[text_ai][first_response]: " + bcolors.WARNING + ai_message + bcolors.ENDC)
-        response = openai.Completion.create(
-            model="text-davinci-003",
-            prompt="вставь слово бля в случайное место в этом сообщении: \"" + ai_message + "\"",
-            temperature=0.7,
-            max_tokens=256,
-            top_p=1,
-            best_of=1,
-            frequency_penalty=0,
-            presence_penalty=0
-        )
-        ai_message = response["choices"][0]["text"].replace("\"", "").replace("\n", "").replace("!", "")
-        pattern = re.compile(re.escape("@neobased"), re.IGNORECASE)
+
+
+        ai_message = generate_text(decoded_message)
+        pattern = re.compile(re.escape("@neobasedai"), re.IGNORECASE)
         ai_message = pattern.sub("", ai_message)
-        ai_message = "@" + decoded_tag + " " + ai_message
+        if "@neobasedai" in decoded_tag:
+            print("Пытались наебать")
+        else:
+            ai_message = "@" + decoded_tag + " " + ai_message
         ai_message = add_emojis(ai_message)
         print("[text_ai][second_response]: " + bcolors.OKGREEN + ai_message + bcolors.ENDC)
-        send_message(ai_message)
+        if config.stream_mode:
+            say(ai_message)
+        else:
+            send_message(ai_message)
     else:
         print("[text_ai]: " + bcolors.WARNING + str(decoded_message) + bcolors.ENDC)
 
@@ -193,5 +180,61 @@ def text_ai():
 if __name__ == "__main__":
     text_ai_thread = threading.Thread(target=text_ai, args=())
     text_ai_thread.start()
-    audio_ai_thread = threading.Thread(target=audio_ai, args=())
-    audio_ai_thread.start()
+    if not config.stream_mode:
+        audio_ai_thread = threading.Thread(target=audio_ai, args=())
+        audio_ai_thread.start()
+
+
+        #generate_text()
+        #if len(transcript.split(" ")) >= 4:
+        #response = openai.Completion.create(
+        #    model="text-davinci-003",
+        #    prompt="give a new short and funny answer to this message: \"" + transcript + "\"",
+        #    temperature=0.75,
+        #    max_tokens=256,
+        #    top_p=1,
+        #    best_of=1,
+        #    frequency_penalty=0,
+        #    presence_penalty=0
+        #)
+        #message = response["choices"][0]["text"].replace("\"", "").replace("\n", "")
+        #message = message.replace("!", "")
+        #print("[audio_ai][first_response]: " + bcolors.WARNING + message + bcolors.ENDC)
+        #response = openai.Completion.create(
+        #    model="text-davinci-003",
+        #    prompt="вставь слово бля в случайное место в этом сообщении: \"" + message + "\"",
+        #    temperature=0.7,
+        #    max_tokens=256,
+        #    top_p=1,
+        #    best_of=1,
+        #    frequency_penalty=0,
+        #    presence_penalty=0
+        #)
+        #message = response["choices"][0]["text"].replace("\"", "").replace("\n", "")
+        #message = message.replace("!", "")
+
+
+        #response = openai.Completion.create(  # TODO рефактор генерации TODO похуй)
+        #    model="text-davinci-003",
+        #    prompt="give a new short and funny answer to this message: \"" + decoded_message + "\"",
+        #    temperature=0.75,
+        #    max_tokens=256,
+        #    top_p=1,
+        #    best_of=1,
+        #    frequency_penalty=0,
+        #    presence_penalty=0
+        #)
+        #ai_message = response["choices"][0]["text"].replace("\"", "").replace("\n", "")
+        #ai_message = ai_message.replace("!", "")
+        #print("[text_ai][first_response]: " + bcolors.WARNING + ai_message + bcolors.ENDC)
+        #response = openai.Completion.create(
+        #    model="text-davinci-003",
+        #    prompt="вставь слово бля в случайное место в этом сообщении: \"" + ai_message + "\"",
+        #    temperature=0.7,
+        #    max_tokens=256,
+        #    top_p=1,
+        #    best_of=1,
+        #    frequency_penalty=0,
+        #    presence_penalty=0
+        #)
+        #ai_message = response["choices"][0]["text"].replace("\"", "").replace("\n", "").replace("!", "")
