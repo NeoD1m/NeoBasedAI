@@ -5,24 +5,14 @@ import requests
 import api_keys
 import config
 
-
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+from color import Color
 
 
 def generate_text(_input_message):
     url = "https://nat.dev/api/stream"
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_keys.bearer}"
+        "Authorization": f"Bearer {api_keys.bearer}",
     }
 
     data = {
@@ -38,31 +28,29 @@ def generate_text(_input_message):
                     "topP": 1,
                     "presencePenalty": 0,
                     "frequencyPenalty": 0,
-                    "stopSequences": [
-
-                    ]
+                    "stopSequences": [],
                 },
                 "enabled": True,
-                "selected": True
+                "selected": True,
             }
-        ]
+        ],
     }
 
     response = requests.post(url, headers=headers, data=json.dumps(data))
 
     if response.status_code == 200:
         text = extract_text(response.content)
-        print("[text_ai]" + bcolors.OKGREEN + text + bcolors.ENDC)
+        print(f"[text_ai] {Color.OKGREEN} text {Color.ENDC}")
         return text
-    else:
-        print(f"Request failed with status code {response.status_code}.")
-        return ""
+
+    print(f"Request failed with status code {response.status_code}.")
+    return ""
 
 
 def extract_text(_bullshit_input):
     messages = []
     pattern = r'data:{"message": "(.*?)",'
-    decoded_string = _bullshit_input.decode('utf-8')
+    decoded_string = _bullshit_input.decode("utf-8")
     for match in re.finditer(pattern, decoded_string):
         message = match.group(1)
         messages.append(message)
